@@ -108,5 +108,42 @@ async def webhook(request: Request, background_tasks: BackgroundTasks):
         comment_url = f"{gitlab_url}/projects/{project_id}/repository/commits/{commit_id}/comments"
         comment_payload = {"note": answer}
         comment_response = requests.post(comment_url, headers=headers, json=comment_payload)
+    elif payload.get("object_kind") == "issue":
+        print(payload)
+        project_id = payload["project"]["id"]
+        content = payload["object_attributes"]["description"]
+        headers = {"Private-Token": gitlab_token}
+        issue_id = payload["object_attributes"]["iid"]
+
+        pre_prompt = "请以资深开发人员的视角尽你所能读懂以下需求并给出实现它的Java代码："
+        #questions = "\n\n问题:\n1. 你能简明扼要地总结以下更改内容吗？\n2. 在差异中，添加或更改的代码是否以清晰易懂的方式编写？\n3. 代码是否使用了注释或描述性的函数和变量名称来解释其含义？\n4. 根据更改的代码复杂性，是否可以简化代码而不影响其功能？如果可以，请给出示例片段。\n5. 是否能找到任何错误？如果是，请解释并提供行号参考。\n6. 你是否看到任何可能引发安全问题的代码？\n"
+
+        messages = [
+            {"role": "system", "content": "你是是一位资深编程专家，负责分析需求并通过Java代码实现。需要给出你的具体代码必须使用严谨的markdown格式。"},
+            {"role": "user", "content": f"{pre_prompt}\n\n{content}"},
+            {"role": "assistant", "content": "当提供代码时，请使用漂亮且有组织的 Markdown 格式，务必使用代码块。请在提供代码的同时用中文对代码进行详细的注释。"},
+        ]
+        print(messages)
+        try:
+            completions = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                temperature=0.7,
+                stream=False,
+                messages=messages
+            )
+            answer = completions.choices[0].message["content"].strip()
+            
+            answer += "\n\n此评论由AI生成."
+        except Exception as e:
+            print(e)
+            answer = "很抱歉，我现在有故障无法处理请求。"
+            answer += "\n\n此评论由AI生成."
+            answer += "\n\n错误: " + str(e)
+
+        print(answer)
+        # POST /projects/:id/issues/:issue_iid/notes
+        comment_url = f"{gitlab_url}/projects/{project_id}/issues/{issue_id}/notes"
+        comment_payload = {"body": answer}
+        comment_response = requests.post(comment_url, headers=headers, json=comment_payload)
 
     return "OK", 200
