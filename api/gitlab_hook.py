@@ -4,6 +4,8 @@ from fastapi import APIRouter, Request,BackgroundTasks
 import openai
 import os
 import requests
+from urllib import parse
+import base64
 
 openai.api_key = os.environ.get("OPENAI_API_KEY")
 openai.api_base = os.environ.get("OPENAI_API_BASE")
@@ -112,14 +114,37 @@ async def webhook(request: Request, background_tasks: BackgroundTasks):
         print(payload)
         project_id = payload["project"]["id"]
         content = payload["object_attributes"]["description"]
+        
         headers = {"Private-Token": gitlab_token}
         issue_id = payload["object_attributes"]["iid"]
+        labels = payload['labels']
+        for label in labels:
+            #print(label)
+            if 'code'==label['title']:
+            #text = "文件名:/src/Test.java\n需求:分析main方法"
+                lines = content.split('\n')
+                branch = lines[0].split(':')[1]
+                file_name = lines[1].split(':')[1]
+                requirement = lines[2].split(':')[1]
+                
+                url_encoded_file_path = parse.quote(file_name, safe='')
+                
+                # 构造 API URL
+                file_url = f'{gitlab_url}/projects/{project_id}/repository/files/{url_encoded_file_path}?ref={branch}'
+                #print(file_url)
+                response = requests.get(file_url, headers=headers)
+                _code = base64.b64decode((response.json())['content'])
+                #print(_code)
+                if response.status_code == 200 or response.status_code == 201:
+                    content = f'请通读以下代码，并完成此要求：{requirement}，代码如下：{_code}'
+                else:
+                    print(f'Failed to get file: {response.status_code}, {response.reason}')
 
         pre_prompt = "请以资深开发人员的视角尽你所能读懂以下需求并给出实现它的Java代码："
         #questions = "\n\n问题:\n1. 你能简明扼要地总结以下更改内容吗？\n2. 在差异中，添加或更改的代码是否以清晰易懂的方式编写？\n3. 代码是否使用了注释或描述性的函数和变量名称来解释其含义？\n4. 根据更改的代码复杂性，是否可以简化代码而不影响其功能？如果可以，请给出示例片段。\n5. 是否能找到任何错误？如果是，请解释并提供行号参考。\n6. 你是否看到任何可能引发安全问题的代码？\n"
 
         messages = [
-            {"role": "system", "content": "你是是一位资深编程专家，负责分析需求并通过Java代码实现。需要给出你的具体代码必须使用严谨的markdown格式。"},
+            {"role": "system", "content": "你是一位资深编程专家，负责分析需求并通过Java代码实现。需要给出你的具体代码必须使用严谨的markdown格式。"},
             {"role": "user", "content": f"{pre_prompt}\n\n{content}"},
             {"role": "assistant", "content": "当提供代码时，请使用漂亮且有组织的 Markdown 格式，务必使用代码块。请在提供代码的同时用中文对代码进行详细的注释。"},
         ]
@@ -145,5 +170,5 @@ async def webhook(request: Request, background_tasks: BackgroundTasks):
         comment_url = f"{gitlab_url}/projects/{project_id}/issues/{issue_id}/notes"
         comment_payload = {"body": answer}
         comment_response = requests.post(comment_url, headers=headers, json=comment_payload)
-
+        print(comment_response)
     return "OK", 200
