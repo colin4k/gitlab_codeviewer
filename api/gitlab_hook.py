@@ -13,7 +13,7 @@ gitlab_token = os.environ.get("GITLAB_TOKEN")
 gitlab_url = os.environ.get("GITLAB_URL")+'/api/v4'
 
 hook = APIRouter()  
-@hook.post("/webhook")
+@hook.post("/")
 async def webhook(request: Request, background_tasks: BackgroundTasks):
     print(request.headers.get("X-Gitlab-Token"))
     print(os.environ.get("EXPECTED_GITLAB_TOKEN"))
