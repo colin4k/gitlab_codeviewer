@@ -46,7 +46,7 @@ async def webhook(request: Request, background_tasks: BackgroundTasks):
         ]
         try:
             completions = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
+                model="gpt-3.5-turbo-16k",
                 temperature=0.7,
                 stream=False,
                 messages=messages
@@ -90,7 +90,7 @@ async def webhook(request: Request, background_tasks: BackgroundTasks):
         print(messages)
         try:
             completions = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
+                model="gpt-3.5-turbo-16k",
                 temperature=0.7,
                 stream=False,
                 messages=messages
@@ -151,7 +151,7 @@ async def webhook(request: Request, background_tasks: BackgroundTasks):
         print(messages)
         try:
             completions = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
+                model="gpt-3.5-turbo-16k",
                 temperature=0.7,
                 stream=False,
                 messages=messages
